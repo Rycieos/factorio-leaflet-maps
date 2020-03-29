@@ -27,6 +27,12 @@ def main(*argv):
         help="Directory to store results in.",
     )
     parser.add_argument(
+        "--threads",
+        "-t",
+        type=int,
+        help="Disable printing the progress bar to stderr.",
+    )
+    parser.add_argument(
         "--no-progress-bar",
         "-q",
         action="store_true",
@@ -35,9 +41,9 @@ def main(*argv):
 
     args = parser.parse_args(*argv)
 
-    create_map(args.source, args.destination, args.no_progress_bar)
+    create_map(args.source, args.destination, args.threads, args.no_progress_bar)
 
-def create_map(source, destination, no_progress_bar=False):
+def create_map(source, destination, threads=None, no_progress_bar=False):
     if os.path.isfile(source):
         archive = tarfile.open(source)
         tmpDir = tempfile.mkdtemp()
@@ -47,7 +53,7 @@ def create_map(source, destination, no_progress_bar=False):
         chunks = sorted(glob(source + 'chunk_*.jpg'), key=chunk_coordinates)
 
     # Parallel Conversion of chunks into tiles
-    with ProcessPoolExecutor(max_workers=4) as executor:
+    with ProcessPoolExecutor(max_workers=threads) as executor:
         futures = [executor.submit(chunk_to_tiles, destination, chunk) for chunk in chunks]
 
         kwargs = {
@@ -65,7 +71,7 @@ def create_map(source, destination, no_progress_bar=False):
             key=tile_coordinates)
 
         # Parallel processing of tiles to lower-zoom levels
-        with ProcessPoolExecutor(max_workers=4) as executor:
+        with ProcessPoolExecutor(max_workers=threads) as executor:
             futures = [executor.submit(zoom_out, destination, tile, zoom) for tile in tiles]
 
             kwargs = {
