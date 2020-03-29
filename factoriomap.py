@@ -9,6 +9,9 @@ import os
 from glob import glob
 import sys
 import tarfile
+import tempfile
+
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from PIL import Image
 from tqdm import tqdm
@@ -28,20 +31,40 @@ def main():
 
     if os.path.isfile(sys.argv[1]):
         archive = tarfile.open(sys.argv[1])
-        chunks = sorted(archive.getnames(), key=chunk_coordinates)
-        for chunk in tqdm(chunks):
-            chunk_to_tiles(archive.extractfile(chunk), chunk)
+        tmpDir = tempfile.mkdtemp()
+        archive.extractall(tmpDir)
+        chunks = sorted(glob(tmpDir+'/chunk_*.jpg'), key=chunk_coordinates)
     else:
         chunks = sorted(glob(sys.argv[1]+'chunk_*.jpg'), key=chunk_coordinates)
-        for chunk in tqdm(chunks):
-            chunk_to_tiles(chunk)
+    
+    # Parallel Conversion of chunks into tiles
+    with ProcessPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(chunk_to_tiles, chunk) for chunk in chunks]
+        kwargs = {
+            'total': len(futures),
+            'unit': 'chunks',
+            'unit_scale': True,
+            'leave': True
+        }
+        for f in tqdm(as_completed(futures), **kwargs):
+            pass
 
     for zoom in range(9, 0, -1):
         tiles = sorted(
             glob('{}{}/*/*.jpg'.format(sys.argv[2], zoom+1)),
             key=tile_coordinates)
-        for tile in tqdm(tiles):
-            zoom_out(tile, zoom)
+
+        # Parallel processing of tiles to lower-zoom levels
+        with ProcessPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(zoom_out, tile, zoom) for tile in tiles]
+            kwargs = {
+                'total': len(futures),
+                'unit': 'tiles',
+                'unit_scale': True,
+                'leave': True
+            }
+            for f in tqdm(as_completed(futures), **kwargs):
+                pass
 
 def zoom_out(filename, zoom):
     """Shrink and combine tiles to zoom view out."""
@@ -73,7 +96,7 @@ def zoom_out(filename, zoom):
 
 def chunk_coordinates(filename):
     """Extract chunk coordinates from filename."""
-    _, chunk_x, chunk_y = os.path.splitext(filename)[0].split('_')
+    _, chunk_x, chunk_y = os.path.splitext(filename)[0].rsplit('_', 2)
     return (int(chunk_x), int(chunk_y))
 
 def tile_coordinates(path):
