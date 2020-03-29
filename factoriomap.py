@@ -5,7 +5,6 @@ import os
 from glob import glob
 import sys
 import tarfile
-import tempfile
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
@@ -44,17 +43,16 @@ def main(*argv):
     create_map(args.source, args.destination, args.threads, args.no_progress_bar)
 
 def create_map(source, destination, threads=None, no_progress_bar=False):
-    if os.path.isfile(source):
-        archive = tarfile.open(source)
-        tmpDir = tempfile.mkdtemp()
-        archive.extractall(tmpDir)
-        chunks = glob(tmpDir + '/chunk_*.jpg')
-    else:
-        chunks = glob(source + 'chunk_*.jpg')
 
     # Parallel Conversion of chunks into tiles
     with ProcessPoolExecutor(max_workers=threads) as executor:
-        futures = [executor.submit(chunk_to_tiles, destination, chunk) for chunk in chunks]
+        if os.path.isfile(source):
+            with tarfile.open(source) as archive:
+                chunks = archive.getnames()
+            futures = [executor.submit(tar_chunk_to_tiles, destination, source, chunk) for chunk in chunks]
+        else:
+            chunks = glob(source + 'chunk_*.jpg')
+            futures = [executor.submit(chunk_to_tiles, destination, chunk) for chunk in chunks]
 
         kwargs = {
             'total': len(futures),
@@ -121,13 +119,16 @@ def tile_coordinates(path):
     explosion = os.path.splitext(path)[0].split('/')
     return (int(explosion[-1]), int(explosion[-2]))
 
+def tar_chunk_to_tiles(destination, source, chunk):
+    with tarfile.open(source) as archive:
+        data = archive.extractfile(chunk)
+        chunk_to_tiles(destination, data, chunk)
+
 def chunk_to_tiles(destination, chunk, chunkname=None):
     """Convert the chunk screenshot to Leaflet tiles at maximum zoom."""
     chunk_image = Image.open(chunk)
-    if chunkname is None:
-        chunk_x, chunk_y = chunk_coordinates(chunk)
-    else:
-        chunk_x, chunk_y = chunk_coordinates(chunkname)
+
+    chunk_x, chunk_y = chunk_coordinates(chunkname if chunkname else chunk)
     tile_x = chunk_x*4
     tile_y = chunk_y*4
 
