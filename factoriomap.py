@@ -6,7 +6,7 @@ from glob import glob
 import sys
 import tarfile
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from multiprocessing import Pool
 
 from PIL import Image
 from tqdm import tqdm
@@ -45,43 +45,45 @@ def main(*argv):
 def create_map(source, destination, threads=None, no_progress_bar=False):
 
     # Parallel Conversion of chunks into tiles
-    with ProcessPoolExecutor(max_workers=threads) as executor:
+    with Pool(processes=threads) as pool:
         if os.path.isfile(source):
             with tarfile.open(source) as archive:
                 chunks = archive.getnames()
-            futures = [executor.submit(tar_chunk_to_tiles, destination, source, chunk) for chunk in chunks]
+            jobs = pool.imap_unordered(tar_chunk_to_tiles, [(destination, source, chunk) for chunk in chunks])
         else:
             chunks = glob(source + 'chunk_*.jpg')
-            futures = [executor.submit(chunk_to_tiles, destination, chunk) for chunk in chunks]
+            jobs = pool.imap_unordered(chunk_to_tiles, [(destination, chunk) for chunk in chunks])
 
         kwargs = {
-            'total': len(futures),
+            'total': len(chunks),
             'unit': 'tiles',
             'unit_scale': True,
             'disable': no_progress_bar,
             'desc': '10',
         }
-        for f in tqdm(as_completed(futures), **kwargs):
+        for f in tqdm(jobs, **kwargs):
             pass
 
     for zoom in range(9, 0, -1):
         tiles = glob('{}{}/*/*.jpg'.format(destination, zoom+1))
 
         # Parallel processing of tiles to lower-zoom levels
-        with ProcessPoolExecutor(max_workers=threads) as executor:
-            futures = [executor.submit(zoom_out, destination, tile, zoom) for tile in tiles]
+        with Pool(processes=threads) as pool:
+            jobs = pool.imap_unordered(zoom_out, [(destination, tile, zoom) for tile in tiles])
 
             kwargs = {
-                'total': len(futures),
+                'total': len(tiles),
                 'unit': 'tiles',
                 'unit_scale': True,
                 'disable': no_progress_bar,
                 'desc': ' {}'.format(zoom),
             }
-            for f in tqdm(as_completed(futures), **kwargs):
+            for f in tqdm(jobs, **kwargs):
                 pass
 
-def zoom_out(destination, filename, zoom):
+def zoom_out(args):
+    destination, filename, zoom = args
+
     """Shrink and combine tiles to zoom view out."""
     source_x, source_y = tile_coordinates(filename)
     tile_x = source_x // 2
@@ -119,12 +121,16 @@ def tile_coordinates(path):
     explosion = os.path.splitext(path)[0].split('/')
     return (int(explosion[-1]), int(explosion[-2]))
 
-def tar_chunk_to_tiles(destination, source, chunk):
+def tar_chunk_to_tiles(args):
+    destination, source, chunk = args
+
     with tarfile.open(source) as archive:
         data = archive.extractfile(chunk)
-        chunk_to_tiles(destination, data, chunk)
+        chunk_to_tiles((destination, data, chunk))
 
-def chunk_to_tiles(destination, chunk, chunkname=None):
+def chunk_to_tiles(args):
+    destination, chunk, chunkname = args
+
     """Convert the chunk screenshot to Leaflet tiles at maximum zoom."""
     chunk_image = Image.open(chunk)
 
