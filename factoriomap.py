@@ -3,6 +3,7 @@
 import argparse
 import os
 from glob import glob
+from functools import partial
 import sys
 import tarfile
 
@@ -29,7 +30,14 @@ def main(*argv):
         "--threads",
         "-t",
         type=int,
-        help="Disable printing the progress bar to stderr.",
+        help="Number of threads to multithread over. Default is the number of CPU processors."
+    )
+    parser.add_argument(
+        "--chunk_size",
+        "-c",
+        type=int,
+        default=5,
+        help="Size of chunks to send to a thread at a time.",
     )
     parser.add_argument(
         "--no-progress-bar",
@@ -40,36 +48,38 @@ def main(*argv):
 
     args = parser.parse_args(*argv)
 
-    create_map(args.source, args.destination, args.threads, args.no_progress_bar)
+    create_map(args.source, args.destination, args.threads, args.chunk_size, args.no_progress_bar)
 
-def create_map(source, destination, threads=None, no_progress_bar=False):
+def create_map(source, destination, threads=None, chunk_size=None, no_progress_bar=False):
 
-    # Parallel Conversion of chunks into tiles
-    with Pool(processes=threads) as pool:
-        if os.path.isfile(source):
-            with tarfile.open(source) as archive:
-                chunks = archive.getnames()
-            jobs = pool.imap_unordered(tar_chunk_to_tiles, [(destination, source, chunk) for chunk in chunks])
-        else:
-            chunks = glob(source + 'chunk_*.jpg')
-            jobs = pool.imap_unordered(chunk_to_tiles, [(destination, chunk) for chunk in chunks])
+    if os.path.isfile(source):
+        pool = Pool(processes=threads, initializer=get_archive, initargs=(source,))
+        with tarfile.open(source) as archive:
+            chunks = archive.getnames()
+        jobs = pool.imap_unordered(partial(tar_chunk_to_tiles, destination=destination), chunks, chunk_size)
+    else:
+        pool = Pool(processes=threads)
+        chunks = glob(source + 'chunk_*.jpg')
+        jobs = pool.imap_unordered(partial(chunk_to_tiles, destination=destination), chunks, chunk_size)
 
-        kwargs = {
-            'total': len(chunks),
-            'unit': 'tiles',
-            'unit_scale': True,
-            'disable': no_progress_bar,
-            'desc': '10',
-        }
-        for f in tqdm(jobs, **kwargs):
-            pass
+    kwargs = {
+        'total': len(chunks),
+        'unit': 'tiles',
+        'unit_scale': True,
+        'disable': no_progress_bar,
+        'desc': '10',
+    }
+    for f in tqdm(jobs, **kwargs):
+        pass
+
+    pool.close()
 
     for zoom in range(9, 0, -1):
         tiles = glob('{}{}/*/*.jpg'.format(destination, zoom+1))
 
         # Parallel processing of tiles to lower-zoom levels
         with Pool(processes=threads) as pool:
-            jobs = pool.imap_unordered(zoom_out, [(destination, tile, zoom) for tile in tiles])
+            jobs = pool.imap_unordered(partial(zoom_out, destination=destination, zoom=zoom), tiles, chunk_size)
 
             kwargs = {
                 'total': len(tiles),
@@ -81,10 +91,13 @@ def create_map(source, destination, threads=None, no_progress_bar=False):
             for f in tqdm(jobs, **kwargs):
                 pass
 
-def zoom_out(args):
-    destination, filename, zoom = args
+def get_archive(archive_filename):
+    global archive
+    archive = tarfile.open(archive_filename)
 
+def zoom_out(filename, destination, zoom):
     """Shrink and combine tiles to zoom view out."""
+
     source_x, source_y = tile_coordinates(filename)
     tile_x = source_x // 2
     tile_y = source_y // 2
@@ -121,17 +134,13 @@ def tile_coordinates(path):
     explosion = os.path.splitext(path)[0].split('/')
     return (int(explosion[-1]), int(explosion[-2]))
 
-def tar_chunk_to_tiles(args):
-    destination, source, chunk = args
+def tar_chunk_to_tiles(chunk, destination):
+    data = archive.extractfile(chunk)
+    chunk_to_tiles(data, destination, chunk)
 
-    with tarfile.open(source) as archive:
-        data = archive.extractfile(chunk)
-        chunk_to_tiles((destination, data, chunk))
-
-def chunk_to_tiles(args):
-    destination, chunk, chunkname = args
-
+def chunk_to_tiles(chunk, destination, chunkname=None):
     """Convert the chunk screenshot to Leaflet tiles at maximum zoom."""
+
     chunk_image = Image.open(chunk)
 
     chunk_x, chunk_y = chunk_coordinates(chunkname if chunkname else chunk)
