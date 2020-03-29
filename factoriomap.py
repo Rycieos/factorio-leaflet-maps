@@ -5,6 +5,9 @@ import os
 from glob import glob
 import sys
 import tarfile
+import tempfile
+
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from PIL import Image
 from tqdm import tqdm
@@ -37,20 +40,42 @@ def main(*argv):
 def create_map(source, destination, no_progress_bar=False):
     if os.path.isfile(source):
         archive = tarfile.open(source)
-        chunks = sorted(archive.getnames(), key=chunk_coordinates)
-        for chunk in tqdm(chunks, desc='10', unit='tile', disable=no_progress_bar):
-            chunk_to_tiles(destination, archive.extractfile(chunk), chunk)
+        tmpDir = tempfile.mkdtemp()
+        archive.extractall(tmpDir)
+        chunks = sorted(glob(tmpDir + '/chunk_*.jpg'), key=chunk_coordinates)
     else:
         chunks = sorted(glob(source + 'chunk_*.jpg'), key=chunk_coordinates)
-        for chunk in tqdm(chunks, desc='10', unit='tile', disable=no_progress_bar):
-            chunk_to_tiles(destination, chunk)
+
+    # Parallel Conversion of chunks into tiles
+    with ProcessPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(chunk_to_tiles, destination, chunk) for chunk in chunks]
+
+        kwargs = {
+            'total': len(futures),
+            'unit': 'tiles',
+            'unit_scale': True,
+            'disable': no_progress_bar,
+        }
+        for f in tqdm(as_completed(futures), **kwargs):
+            pass
 
     for zoom in range(9, 0, -1):
         tiles = sorted(
             glob('{}{}/*/*.jpg'.format(destination, zoom+1)),
             key=tile_coordinates)
-        for tile in tqdm(tiles, desc=' {}'.format(zoom), unit='tile', disable=no_progress_bar):
-            zoom_out(destination, tile, zoom)
+
+        # Parallel processing of tiles to lower-zoom levels
+        with ProcessPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(zoom_out, destination, tile, zoom) for tile in tiles]
+
+            kwargs = {
+                'total': len(futures),
+                'unit': 'tiles',
+                'unit_scale': True,
+                'disable': no_progress_bar,
+            }
+            for f in tqdm(as_completed(futures), **kwargs):
+                pass
 
 def zoom_out(destination, filename, zoom):
     """Shrink and combine tiles to zoom view out."""
@@ -82,7 +107,7 @@ def zoom_out(destination, filename, zoom):
 
 def chunk_coordinates(filename):
     """Extract chunk coordinates from filename."""
-    _, chunk_x, chunk_y = os.path.splitext(filename)[0].split('_')
+    _, chunk_x, chunk_y = os.path.splitext(filename)[0].rsplit('_', 2)
     return (int(chunk_x), int(chunk_y))
 
 def tile_coordinates(path):
