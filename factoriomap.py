@@ -1,10 +1,6 @@
-"""Convert a TAR file or directory of Factorio screenshots into Leaflet
-map tiles.
+#!/usr/bin/env python3
 
-Factorio Console Command to generate screenshots:
-    /c game.player.surface.daytime = 0; for x=-1000,1000 do for y=-1000,1000 do if game.forces["player"].is_chunk_charted(1, {x, y}) then game.take_screenshot{show_entity_info=true, zoom=1, resolution={1024,1024}, position={x=32*x+16,y=32*y+16}, path="DIR/s_"..x.."_"..y..".jpg"}; end; end; end;
-
-"""
+import argparse
 import os
 from glob import glob
 import sys
@@ -13,37 +9,50 @@ import tarfile
 from PIL import Image
 from tqdm import tqdm
 
-USAGE = '''
-Usage: python3 factoriomap.py [source] [destination]
-   source: directory or .tar file
-   destination: directory
-'''
+def main(*argv):
 
-def main():
-    """Main executable function."""
-    # Verify arguments; print usage on failure.
-    if len(sys.argv) < 3 or not os.path.isdir(sys.argv[2]):
-        print(USAGE)
-        sys.exit()
+    parser = argparse.ArgumentParser(description="Convert a TAR file or directory of Factorio screenshots into Leaflet map tiles.")
 
-    if os.path.isfile(sys.argv[1]):
-        archive = tarfile.open(sys.argv[1])
+    parser.add_argument(
+        "source",
+        type=str,
+        help="Directory or tar file to read Factorio screenshots from.",
+    )
+    parser.add_argument(
+        "destination",
+        type=str,
+        help="Directory to store results in.",
+    )
+    parser.add_argument(
+        "--no-progress-bar",
+        "-q",
+        action="store_true",
+        help="Disable printing the progress bar to stderr.",
+    )
+
+    args = parser.parse_args(*argv)
+
+    create_map(args.source, args.destination, args.no_progress_bar)
+
+def create_map(source, destination, no_progress_bar=False):
+    if os.path.isfile(source):
+        archive = tarfile.open(source)
         chunks = sorted(archive.getnames(), key=chunk_coordinates)
-        for chunk in tqdm(chunks):
-            chunk_to_tiles(archive.extractfile(chunk), chunk)
+        for chunk in tqdm(chunks, desc='10', unit='tile', disable=no_progress_bar):
+            chunk_to_tiles(destination, archive.extractfile(chunk), chunk)
     else:
-        chunks = sorted(glob(sys.argv[1]+'chunk_*.jpg'), key=chunk_coordinates)
-        for chunk in tqdm(chunks):
-            chunk_to_tiles(chunk)
+        chunks = sorted(glob(source + 'chunk_*.jpg'), key=chunk_coordinates)
+        for chunk in tqdm(chunks, desc='10', unit='tile', disable=no_progress_bar):
+            chunk_to_tiles(destination, chunk)
 
     for zoom in range(9, 0, -1):
         tiles = sorted(
-            glob('{}{}/*/*.jpg'.format(sys.argv[2], zoom+1)),
+            glob('{}{}/*/*.jpg'.format(destination, zoom+1)),
             key=tile_coordinates)
-        for tile in tqdm(tiles):
-            zoom_out(tile, zoom)
+        for tile in tqdm(tiles, desc=' {}'.format(zoom), unit='tile', disable=no_progress_bar):
+            zoom_out(destination, tile, zoom)
 
-def zoom_out(filename, zoom):
+def zoom_out(destination, filename, zoom):
     """Shrink and combine tiles to zoom view out."""
     source_x, source_y = tile_coordinates(filename)
     tile_x = source_x // 2
@@ -52,15 +61,15 @@ def zoom_out(filename, zoom):
     origin_y = tile_y * 2
 
     if not os.path.isfile(
-            '{}{}/{}/{}.jpg'.format(sys.argv[2], zoom, tile_y, tile_x)):
-        os.makedirs('{}{}/{}'.format(sys.argv[2], zoom, tile_y), exist_ok=True)
+            '{}{}/{}/{}.jpg'.format(destination, zoom, tile_y, tile_x)):
+        os.makedirs('{}{}/{}'.format(destination, zoom, tile_y), exist_ok=True)
 
         tile_image = Image.new('RGB', (512, 512))
         for x_adj in range(2):
             for y_adj in range(2):
                 try:
                     paste_image = Image.open('{}{}/{}/{}.jpg'.format(
-                        sys.argv[2], zoom+1, origin_y+y_adj, origin_x+x_adj))
+                        destination, zoom+1, origin_y+y_adj, origin_x+x_adj))
                 except FileNotFoundError:
                     paste_image = Image.new('RGB', (256, 256))
 
@@ -69,7 +78,7 @@ def zoom_out(filename, zoom):
                     (x_adj*256, y_adj*256))
 
         tile_image.resize((256, 256)).save('{}{}/{}/{}.jpg'.format(
-            sys.argv[2], zoom, tile_y, tile_x))
+            destination, zoom, tile_y, tile_x))
 
 def chunk_coordinates(filename):
     """Extract chunk coordinates from filename."""
@@ -81,7 +90,7 @@ def tile_coordinates(path):
     explosion = os.path.splitext(path)[0].split('/')
     return (int(explosion[-1]), int(explosion[-2]))
 
-def chunk_to_tiles(chunk, chunkname=None):
+def chunk_to_tiles(destination, chunk, chunkname=None):
     """Convert the chunk screenshot to Leaflet tiles at maximum zoom."""
     chunk_image = Image.open(chunk)
     if chunkname is None:
@@ -92,7 +101,7 @@ def chunk_to_tiles(chunk, chunkname=None):
     tile_y = chunk_y*4
 
     if not os.path.isfile(
-            '{}{}/{}/{}.jpg'.format(sys.argv[2], 10, tile_y, tile_x)):
+            '{}{}/{}/{}.jpg'.format(destination, 10, tile_y, tile_x)):
         for x_adj in range(4):
             for y_adj in range(4):
                 os.makedirs(
@@ -107,7 +116,7 @@ def chunk_to_tiles(chunk, chunkname=None):
                         (x_adj+1)*256,
                         (y_adj+1)*256)
                     ).save('{}{}/{}/{}.jpg'.format(
-                        sys.argv[2], 10, tile_y+y_adj, tile_x+x_adj))
+                        destination, 10, tile_y+y_adj, tile_x+x_adj))
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main(sys.argv))
