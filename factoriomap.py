@@ -61,6 +61,7 @@ def create_map(source, destination, threads=None, no_progress_bar=False):
             'unit': 'tiles',
             'unit_scale': True,
             'disable': no_progress_bar,
+            'desc': '10',
         }
         for f in tqdm(as_completed(futures), **kwargs):
             pass
@@ -77,6 +78,7 @@ def create_map(source, destination, threads=None, no_progress_bar=False):
                 'unit': 'tiles',
                 'unit_scale': True,
                 'disable': no_progress_bar,
+                'desc': ' {}'.format(zoom),
             }
             for f in tqdm(as_completed(futures), **kwargs):
                 pass
