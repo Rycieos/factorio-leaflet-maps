@@ -48,9 +48,9 @@ def create_map(source, destination, threads=None, no_progress_bar=False):
         archive = tarfile.open(source)
         tmpDir = tempfile.mkdtemp()
         archive.extractall(tmpDir)
-        chunks = sorted(glob(tmpDir + '/chunk_*.jpg'), key=chunk_coordinates)
+        chunks = glob(tmpDir + '/chunk_*.jpg')
     else:
-        chunks = sorted(glob(source + 'chunk_*.jpg'), key=chunk_coordinates)
+        chunks = glob(source + 'chunk_*.jpg')
 
     # Parallel Conversion of chunks into tiles
     with ProcessPoolExecutor(max_workers=threads) as executor:
@@ -66,9 +66,7 @@ def create_map(source, destination, threads=None, no_progress_bar=False):
             pass
 
     for zoom in range(9, 0, -1):
-        tiles = sorted(
-            glob('{}{}/*/*.jpg'.format(destination, zoom+1)),
-            key=tile_coordinates)
+        tiles = glob('{}{}/*/*.jpg'.format(destination, zoom+1))
 
         # Parallel processing of tiles to lower-zoom levels
         with ProcessPoolExecutor(max_workers=threads) as executor:
