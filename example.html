@@ -7,71 +7,210 @@
         integrity="sha512-2fA79E27MOeBgLjmBrtAgM/20clVSV8vJERaW/EcnnWCVGwQRazzKtQS1kIusCZv1PtaQxosDZZ0F1Oastl55w=="
         crossorigin=""></script>
     <style>
-body {
-    border: 0px;
-    padding: 0px;
-    overflow: hidden;
-    margin: 0px;
+
+* {
+  margin: 0;
+  padding: 0;
+  font: inherit;
 }
+
+body {
+  border: 0;
+  overflow: hidden;
+}
+.container {
+  position: relative;
+}
+
+/* Leaflet modifications */
 .leaflet-container {
-    background-color: #000;
+  background-color: #000;
 }
 .leaflet-control-attribution {
-    visibility: hidden;
+  visibility: hidden;
 }
+
 #mapid {
-    height: 100%;
-    width: 100%;
+  height: 100%;
+  width: 100%;
 }
+
+.slide-container {
+  bottom: 3em;
+  --min: 0;
+  --track-w: 30em;
+  --uu: calc(var(--track-w) - 1em)/(var(--max) - var(--min));
+  display: grid;
+  align-content: center;
+  float: none;
+  margin: 1em auto;
+  width: var(--track-w);
+  max-width: 50%;
+  height: 0.5em;
+  opacity: 0.3; /* Set transparency (for mouse-over effects on hover) */
+  font: 1em/ 2 ubuntu mono, consolas, monaco, monospace;
+  cursor: pointer;
+  -webkit-transition: .5s; /* 0.2 seconds transition on hover */
+  transition: opacity .5s;
+}
+
+.slider {
+  -webkit-appearance: none; /* Override default CSS styles */
+  appearance: none;
+  width: 100%;
+  min-height: 1em;
+  background: linear-gradient(#5b5b5b, #828282 70%, #888);
+  border-radius: 0.5em;
+  outline: none;
+}
+
+.slider::-webkit-slider-thumb,
+.slider::-ms-thumb,
+.slider::-moz-range-thumb {
+  border-radius: 50%;
+  width: 15px;
+  height: 15px;
+}
+
+#layer-label {
+  --pos: calc((var(--layer-selector) - var(--min))*var(--uu));
+  position: absolute;
+  bottom: 100%;
+  left: 0.5em;
+  transform: translate(calc(var(--pos) - 50%));
+  filter: drop-shadow(0 2px 3px #afb0b4);
+  opacity: 0;
+  margin-bottom: .375em;
+  padding: 0 .5em;
+  border-radius: .5em;
+  background: linear-gradient(#fdfdfd, #cdcdd0) border-box;
+  color: #027bc1;
+  filter: grayScale();
+}
+
+.slide-container:hover,
+.slide-container:hover #layer-label {
+  opacity: 1;
+}
+
     </style>
 </head>
 
 <body>
 
-<div id="mapid"></div>
+<div class="container">
+    <div id="mapid"></div>
+    <div class="slide-container leaflet-control">
+        <input id="layer-selector" type="range" min="0" step="1" class="slider" oninput="loadLayer(this.value)">
+        <output id="layer-label" for="layer-selector"></output>
+    </div>
+</div>
 
 <script>
-var loadBoundary = function () {
+
+var pathPrefix = "images/"
+var dates = [
+    "2020-02-22",  // put dates here
+]
+
+addEventListener('input', e => {
+    let _t = e.target,
+        _p = _t.parentNode;
+
+    _p.style.setProperty(`--${_t.id}`, +_t.value)
+}, false);
+
+// Copied from: https://gist.github.com/barryhunter/e42f0c4756e34d5d07db4a170c7ec680
+L.TileLayer2 = L.TileLayer.extend({
+    _refreshTileUrl: function(tile, url) {
+        //use a image in background, so that only replace the actual tile, once image is loaded in cache!
+        var img = new Image();
+        img.onload = function() {
+            L.Util.requestAnimFrame(function() {
+                 tile.el.src = url;
+            });
+        }
+        img.src = url;
+    },
+    refresh: function() {
+        //prevent _tileOnLoad/_tileReady re-triggering a opacity animation
+        var wasAnimated = this._map._fadeAnimated;
+        this._map._fadeAnimated = false;
+
+        for (var key in this._tiles) {
+            tile = this._tiles[key];
+            if (tile.current && tile.active) {
+                var oldsrc = tile.el.src;
+                var newsrc = this.getTileUrl(tile.coords);
+                if (oldsrc != newsrc) {
+                    this._refreshTileUrl(tile, newsrc);
+                }
+            }
+        }
+
+        if (wasAnimated)
+                setTimeout(function() { mymap._fadeAnimated = wasAnimated; }, 5000);
+    }
+});
+
+function loadLayer(id) {
+    label.value = dates[id];
+    current_layer_id = id
+    layer.setUrl(pathPrefix + dates[id] + "/{z}/{y}/{x}.jpg", true);
+    layer.refresh();
+    saveBoundary();
+}
+
+function loadBoundary() {
     var qs = window.location.search;
     if (qs.length > 1) {
         qs = qs.substring(1);
         qs = qs.split(',');
     }
-    if (qs.length === 3) {
+    if (qs.length === 4) {
         qs[0] = Number.parseFloat(qs[0]);
         qs[1] = Number.parseFloat(qs[1]);
         qs[2] = Number.parseInt(qs[2]);
+        qs[3] = Number.parseInt(qs[3]);
     } else {
-        qs = [0, 0, 8] // Set default center and zoom here
+        qs = [0, 0, 8, dates.length - 1] // Set default center and zoom here
     }
 
     return qs;
 }
 
-var saveBoundary = function () {
+function saveBoundary() {
     var center = mymap.getCenter();
     var zoom = Number.parseFloat(mymap.getZoom()).toPrecision(1);
-    var url = '?' + center.lat.toPrecision(5) + ',' + center.lng.toPrecision(5) + ',' + zoom;
+    var url = '?' + center.lat.toPrecision(5) + ',' + center.lng.toPrecision(5) + ',' + zoom + ',' + current_layer_id;
     window.history.replaceState({}, '', url);
 }
 
-var b = loadBoundary();
-console.log(b);
+let slider = document.getElementById("layer-selector");
+slider.max = dates.length - 1;
+slider.parentNode.style.setProperty(`--max`, slider.max)
 
-var mymap = L.map(
-    'mapid', {
-        crs: L.CRS.Simple,
-        maxZoom: 10,
-        minZoom: 1,
-        wheelPxPerZoomLevel: 500
-    }).setView([b[0], b[1]], b[2]);
+let b = loadBoundary();
+var current_layer_id = b[3];
+slider.value = current_layer_id;
+slider.parentNode.style.setProperty(`--layer-selector`, slider.value)
+
+var label = document.getElementById("layer-label");
+label.value = dates[current_layer_id];
+
+var layer = new L.TileLayer2(pathPrefix + dates[current_layer_id] + "/{z}/{y}/{x}.jpg");
+
+var mymap = L.map('mapid', {
+    crs: L.CRS.Simple,
+    maxZoom: 10,
+    minZoom: 1,
+    wheelPxPerZoomLevel: 500,
+    layers: [layer],
+}).setView([b[0], b[1]], b[2]);
 
 mymap.on('moveend', function (e) {
     saveBoundary();
 });
-
-L.tileLayer("{z}/{y}/{x}.jpg").addTo(mymap); // set relative path to your tiles here
-
 </script>
 
 </body>
