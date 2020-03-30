@@ -166,4 +166,4 @@ def chunk_to_tiles(chunk, destination, chunkname=None):
                         destination, 10, tile_y+y_adj, tile_x+x_adj))
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv[1:]))
