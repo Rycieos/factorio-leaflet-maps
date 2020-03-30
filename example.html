@@ -113,9 +113,14 @@ body {
 <script>
 
 var pathPrefix = "images/"
-var dates = [
-    "2020-02-22",  // put dates here
-]
+var dates_json_file = "dates.json"
+
+function HttpGet(url){
+    let Httpreq = new XMLHttpRequest();
+    Httpreq.open("GET", url, false);
+    Httpreq.send(null);
+    return Httpreq.responseText;
+}
 
 addEventListener('input', e => {
     let _t = e.target,
@@ -195,6 +200,8 @@ function saveBoundary() {
     var url = '?' + center.lat.toPrecision(5) + ',' + center.lng.toPrecision(5) + ',' + zoom + ',' + current_layer_id;
     window.history.replaceState({}, '', url);
 }
+
+var dates = JSON.parse(HttpGet(dates_json_file));
 
 let slider = document.getElementById("layer-selector");
 slider.max = dates.length - 1;
