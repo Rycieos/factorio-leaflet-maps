@@ -52,6 +52,9 @@ def main(*argv):
 
 def create_map(source, destination, threads=None, chunk_size=None, no_progress_bar=False):
 
+    if destination[-1] != '/':
+        destination += '/'
+
     if os.path.isfile(source):
         pool = Pool(processes=threads, initializer=get_archive, initargs=(source,))
         with tarfile.open(source) as archive:
