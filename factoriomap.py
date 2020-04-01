@@ -58,7 +58,8 @@ def create_map(source, destination, threads=None, chunk_size=None, no_progress_b
     if os.path.isfile(source):
         pool = Pool(processes=threads, initializer=get_archive, initargs=(source,))
         with tarfile.open(source) as archive:
-            chunks = archive.getnames()
+            tar_objects = archive.getmembers()
+            chunks = [tar_object.name for tar_object in tar_objects if tar_object.isfile()]
         jobs = pool.imap_unordered(partial(tar_chunk_to_tiles, destination=destination), chunks, chunk_size)
     else:
         pool = Pool(processes=threads)
