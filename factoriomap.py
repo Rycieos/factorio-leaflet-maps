@@ -126,7 +126,7 @@ def zoom_out(filename, destination, zoom):
                     (x_adj*256, y_adj*256))
 
         tile_image.resize((256, 256)).save('{}{}/{}/{}.jpg'.format(
-            destination, zoom, tile_y, tile_x))
+            destination, zoom, tile_y, tile_x), optimize=True)
 
 def chunk_coordinates(filename):
     """Extract chunk coordinates from filename."""
@@ -167,7 +167,7 @@ def chunk_to_tiles(chunk, destination, chunkname=None):
                         (x_adj+1)*256,
                         (y_adj+1)*256)
                     ).save('{}{}/{}/{}.jpg'.format(
-                        destination, 10, tile_y+y_adj, tile_x+x_adj))
+                        destination, 10, tile_y+y_adj, tile_x+x_adj), optimize=True)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
