@@ -157,7 +157,7 @@ def chunk_to_tiles(chunk, destination, chunkname=None):
             for y_adj in range(4):
                 os.makedirs(
                     '{}{}/{}'.format(
-                        sys.argv[2], 10, tile_y+y_adj),
+                        destination, 10, tile_y+y_adj),
                     exist_ok=True)
 
                 chunk_image.crop(
