@@ -207,6 +207,11 @@ let slider = document.getElementById("layer-selector");
 slider.max = dates.length - 1;
 slider.parentNode.style.setProperty(`--max`, slider.max)
 
+// If there is only one date in the array
+if (slider.max == 0) {
+    slider.parentNode.style.display = "none";
+}
+
 let b = loadBoundary();
 var current_layer_id = b[3];
 slider.value = current_layer_id;
