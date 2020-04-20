@@ -196,7 +196,7 @@ function loadBoundary() {
 
 function saveBoundary() {
     var center = mymap.getCenter();
-    var zoom = Number.parseFloat(mymap.getZoom()).toPrecision(1);
+    var zoom = Number.parseInt(mymap.getZoom());
     var url = '?' + center.lat.toPrecision(5) + ',' + center.lng.toPrecision(5) + ',' + zoom + ',' + current_layer_id;
     window.history.replaceState({}, '', url);
 }
