@@ -5,6 +5,7 @@ SERVER_BASE_PATH=/srv/factorio/maps
 MAP_TILES_PATH=images
 FACTORIO_MAP_SCRIPT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"/factoriomap.py
 TARFILE=
+REDUCE=0
 
 function usage() {
     cat <<-EOF
@@ -26,6 +27,7 @@ OPTIONS
     -s | --server <server path>     Set the base path where the http server files will be stored.  Default value is
                                     '/srv/factorio/maps'
 
+    -r                              Flag to size-reduce the images folder with the rdfind tool
 EOF
 }
 
@@ -39,6 +41,12 @@ function testRequirements() {
 		echo "ERROR: Requirement not satisfied - python3 -"
 		exit 1
 	fi
+
+    if [[ REDUCE -eq 1 && !(-x "$(command -v rdfind)") ]]; then
+		echo "ERROR: Requirement not satisfied - rdfind -"
+		exit 1
+	fi
+
 }
 
 function parseFileName() {
@@ -68,6 +76,10 @@ function processTiles() {
 	echo "DESTINATION $DESTPATH"
 	mkdir $DESTPATH
 	python3 $FACTORIO_MAP_SCRIPT $TARFILE $DESTPATH
+
+    if [ $REDUCE -eq 1 ]; then
+        rdfind -makehardlinks true $SERVER_BASE_PATH/$WORLDNAME/$MAP_TILES_PATH
+    fi
 }
 
 function addDatesJSON() {
@@ -104,6 +116,10 @@ while [[ $# -gt 0 ]]; do
             # Print Usage
             usage;
             exit 0
+            ;;
+        -r)
+            REDUCE=1
+            shift
             ;;
         -t|--tiles)
             MAP_TILES_PATH="$2"
