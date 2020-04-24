@@ -77,7 +77,7 @@ function addDatesJSON() {
         jq --arg date "$DATESTR" '. |= .+ [$date]' $DATEFILE > "$TMPFILE" && cat $TMPFILE > $DATEFILE
         rm $TMPFILE
     else
-        echo -e '[\n    "$DATESTR" \n]' >> $DATEFILE
+        echo -e '[\n    "'$DATESTR'" \n]' >> $DATEFILE
     fi
 
 }
