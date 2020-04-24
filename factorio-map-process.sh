@@ -42,7 +42,7 @@ function testRequirements() {
 		exit 1
 	fi
 
-    if [[ REDUCE -eq 1 && !(-x "$(command -v rdfind)") ]]; then
+        if [[ REDUCE -eq 1 && !(-x "$(command -v rdfind)") ]]; then
 		echo "ERROR: Requirement not satisfied - rdfind -"
 		exit 1
 	fi
@@ -73,9 +73,9 @@ function createNewWorld() {
 }
 
 function processTiles() {
-	echo "DESTINATION $DESTPATH"
-	mkdir $DESTPATH
-	python3 $FACTORIO_MAP_SCRIPT $TARFILE $DESTPATH
+    echo "DESTINATION $DESTPATH"
+    mkdir $DESTPATH
+    python3 $FACTORIO_MAP_SCRIPT $TARFILE $DESTPATH
 
     if [ $REDUCE -eq 1 ]; then
         rdfind -makehardlinks true $SERVER_BASE_PATH/$WORLDNAME/$MAP_TILES_PATH
@@ -95,18 +95,18 @@ function addDatesJSON() {
 }
 
 function main() {
-	testRequirements;
+    testRequirements;
 
-	parseFileName;
-	
-	createNewWorld;
+    parseFileName;
 
-	processTiles;
+    createNewWorld;
 
-	addDatesJSON;
+    processTiles;
 
-	echo "Success"
-	exit 0
+    addDatesJSON;
+
+    echo "Success"
+    exit 0
 }
 
 
