@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## Defaults
 SERVER_BASE_PATH=/srv/factorio/maps
 MAP_TILES_PATH=images
-FACTORIO_MAP_SCRIPT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"/factoriomap.py
+FACTORIO_MAP_SCRIPT="$(dirname "${BASH_SOURCE[0]}")/factoriomap.py"
 TARFILE=
 REDUCE=0
 
@@ -17,7 +17,7 @@ DESCRIPTION
 
 This script will process a given tarfile into a set of images used in a leaflet map.
 The default behavior will create a directory for the world maps if one does not exist and copy the example html page in as 'index.html'
-The tar file will be parsed for a map name and a date, separated by underscores (_). Files should be of the format {WorldName}_YYYY_MM_DD.tar.
+The tar file will be parsed for a map name and a date, separated by underscores (_). Files should be of the format {WorldName}_YYYY-MM-DD.tar.
     
 OPTIONS
 
@@ -50,15 +50,15 @@ function testRequirements() {
 }
 
 function parseFileName() {
-	NAME_NOEXT="${FULLNAME%.*}"
+	NAME_NOEXT="${FILENAME%.*}"
 	echo "Target File: $NAME_NOEXT"
 
-	infos=($(awk -F'[_.]' '{print $1; print $2; print $3; print $4}' <<< $NAME_NOEXT))
+	infos=($(awk -F'[_.]' '{print $1; print $2}' <<< $NAME_NOEXT))
 
 	WORLDNAME=${infos[0]}
 	echo "WORLD NAME $WORLDNAME"
 
-	DATESTR=${infos[1]}-${infos[2]}-${infos[3]}
+	DATESTR=${infos[1]}
 	echo "DATE STRING $DATESTR"
 	DESTPATH=$SERVER_BASE_PATH/$WORLDNAME/$MAP_TILES_PATH/$DATESTR/
 }
@@ -130,18 +130,17 @@ while [[ $# -gt 0 ]]; do
         -s|--server)
             SERVER_BASE_PATH="$2"
             echo "Using Server Path $SERVER_BASE_PATH"
-            shift
-            shift
+            shift 2
             ;;
         *)
             TARFILE=$1
             echo "TARFILE $TARFILE"
-            if [[ $TARFILE != *.tar ]]; then
-	            echo "ERROR: File is not a .tar file"
+            if  ! { tar tf "$TARFILE"; } >/dev/null 2>&1;; then
+	            echo "ERROR: File is not a tar archive```
                 usage;
 	            exit 0
             fi
-            FULLNAME=$(basename "$TARFILE")
+            FILENAME=$(basename "$TARFILE")
             shift
             ;;
     esac    
