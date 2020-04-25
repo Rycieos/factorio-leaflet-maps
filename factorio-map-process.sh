@@ -124,8 +124,7 @@ while [[ $# -gt 0 ]]; do
         -t|--tiles)
             MAP_TILES_PATH="$2"
             echo "Using MAP Path $MAP_TILES_PATH"
-            shift
-            shift
+            shift 2
             ;;
         -s|--server)
             SERVER_BASE_PATH="$2"
@@ -135,8 +134,8 @@ while [[ $# -gt 0 ]]; do
         *)
             TARFILE=$1
             echo "TARFILE $TARFILE"
-            if  ! { tar tf "$TARFILE"; } >/dev/null 2>&1;; then
-	            echo "ERROR: File is not a tar archive```
+            if  ! { tar tf "$TARFILE"; } >/dev/null 2>&1; then
+	            echo "ERROR: File is not a tar archive"
                 usage;
 	            exit 0
             fi
