@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+set -euo pipefail
 ## Defaults
 SERVER_BASE_PATH=/srv/factorio/maps
 MAP_TILES_PATH=images
@@ -8,7 +8,7 @@ TARFILE=
 REDUCE=0
 
 function usage() {
-    cat <<-EOF
+    cat <<EOF
 USAGE
 
 factorio-map-process.sh [OPTIONS] tarfile
@@ -37,11 +37,6 @@ function testRequirements() {
 		exit 1
 	fi
 
-	if ! [ -x "$(command -v python3)" ]; then
-		echo "ERROR: Requirement not satisfied - python3 -"
-		exit 1
-	fi
-
         if [[ REDUCE -eq 1 && !(-x "$(command -v rdfind)") ]]; then
 		echo "ERROR: Requirement not satisfied - rdfind -"
 		exit 1
@@ -51,7 +46,7 @@ function testRequirements() {
 
 function parseFileName() {
 	NAME_NOEXT="${FILENAME%.*}"
-	echo "Target File: $NAME_NOEXT"
+	echo "Target File: ${FILENAME}"
 
 	infos=($(awk -F'[_.]' '{print $1; print $2}' <<< $NAME_NOEXT))
 
@@ -75,21 +70,21 @@ function createNewWorld() {
 function processTiles() {
     echo "DESTINATION $DESTPATH"
     mkdir $DESTPATH
-    python3 $FACTORIO_MAP_SCRIPT $TARFILE $DESTPATH
+    $FACTORIO_MAP_SCRIPT $TARFILE $DESTPATH
 
     if [ $REDUCE -eq 1 ]; then
-        rdfind -makehardlinks true $SERVER_BASE_PATH/$WORLDNAME/$MAP_TILES_PATH
+        rdfind -makehardlinks true "${SERVER_BASE_PATH}/${WORLDNAME}/${MAP_TILES_PATH}"
     fi
 }
 
 function addDatesJSON() {
-    DATEFILE=$SERVER_BASE_PATH/$WORLDNAME/dates.json
+    DATEFILE="${SERVER_BASE_PATH}/${WORLDNAME}/dates.json"
     if [[ -f $DATEFILE ]]; then
-        TMPFILE=$(mktemp)
-        jq --arg date "$DATESTR" '. |= .+ [$date]' $DATEFILE > "$TMPFILE" && cat $TMPFILE > $DATEFILE
-        rm $TMPFILE
+        TMPFILE="$(mktemp)"
+        jq ". += [\"${DATESTR}\"]" "${DATEFILE}" > "${TMPFILE}" && cat "${TMPFILE}" > "${DATEFILE}"
+        rm "${TMPFILE}"
     else
-        echo -e '[\n    "'$DATESTR'" \n]' >> $DATEFILE
+        jq <<< "[\"${DATESTR}\"]" > "${DATEFILE}"
     fi
 
 }
