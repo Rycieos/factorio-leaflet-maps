@@ -48,13 +48,21 @@ function parseFileName() {
 	NAME_NOEXT="${FILENAME%.*}"
 	echo "Target File: ${FILENAME}"
 
-	infos=($(awk -F'[_.]' '{print $1; print $2}' <<< $NAME_NOEXT))
+	IFS='\n'
+	infos=($(awk -F'[_.]' '{print $1; print $2}' <<< "${NAME_NOEXT}"))
+	unset IFS
 
-	WORLDNAME=${infos[0]}
-	echo "WORLD NAME $WORLDNAME"
+	if [[ ${#infos[@]} -ge 2 ]]; then
+		WORLDNAME="${infos[0]}"
+		echo "WORLD NAME $WORLDNAME"
 
-	DATESTR=${infos[1]}
-	echo "DATE STRING $DATESTR"
+		DATESTR=${infos[1]}
+		echo "DATE STRING $DATESTR"
+	else
+		WORLDNAME=""
+		DATESTR=${infos[0]}
+		echo "DATE STRING $DATESTR"
+	fi
 	DESTPATH=$SERVER_BASE_PATH/$WORLDNAME/$MAP_TILES_PATH/$DATESTR/
 }
 
@@ -129,7 +137,7 @@ while [[ $# -gt 0 ]]; do
         *)
             TARFILE=$1
             echo "TARFILE $TARFILE"
-            if  ! { tar tf "$TARFILE"; } >/dev/null 2>&1; then
+            if ! tar tf "$TARFILE" >/dev/null 2>&1; then
 	            echo "ERROR: File is not a tar archive"
                 usage;
 	            exit 0
