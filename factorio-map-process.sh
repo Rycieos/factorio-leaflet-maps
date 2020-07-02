@@ -48,9 +48,8 @@ function parseFileName() {
 	NAME_NOEXT="${FILENAME%.*}"
 	echo "Target File: ${FILENAME}"
 
-	IFS='\n'
+	local IFS='\n'
 	infos=($(awk -F'[_.]' '{print $1; print $2}' <<< "${NAME_NOEXT}"))
-	unset IFS
 
 	if [[ ${#infos[@]} -ge 2 ]]; then
 		WORLDNAME="${infos[0]}"
