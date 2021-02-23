@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 ## Defaults
 SERVER_BASE_PATH=/srv/factorio/maps
 MAP_TILES_PATH=images
@@ -18,7 +19,7 @@ DESCRIPTION
 This script will process a given tarfile into a set of images used in a leaflet map.
 The default behavior will create a directory for the world maps if one does not exist and copy the example html page in as 'index.html'
 The tar file will be parsed for a map name and a date, separated by underscores (_). Files should be of the format {WorldName}_YYYY-MM-DD.tar.
-    
+
 OPTIONS
 
     -t | --tiles <images>           Set the name of the directory to store the tile images in.  Default value is
@@ -32,37 +33,37 @@ EOF
 }
 
 function testRequirements() {
-	if ! [ -x "$(command -v jq)" ]; then
-		echo "ERROR: Requirement not satisfied - jq -"
-		exit 1
-	fi
+    if ! [ -x "$(command -v jq)" ]; then
+        echo "ERROR: Requirement not satisfied - jq -"
+        exit 1
+    fi
 
-        if [[ REDUCE -eq 1 && !(-x "$(command -v rdfind)") ]]; then
-		echo "ERROR: Requirement not satisfied - rdfind -"
-		exit 1
-	fi
+    if [[ REDUCE -eq 1 && !(-x "$(command -v rdfind)") ]]; then
+        echo "ERROR: Requirement not satisfied - rdfind -"
+        exit 1
+    fi
 
 }
 
 function parseFileName() {
-	NAME_NOEXT="${FILENAME%.*}"
-	echo "Target File: ${FILENAME}"
+    NAME_NOEXT="${FILENAME%.*}"
+    echo "Target File: ${FILENAME}"
 
-	local IFS='\n'
-	infos=($(awk -F'[_.]' '{print $1; print $2}' <<< "${NAME_NOEXT}"))
+    local IFS='\n'
+    infos=($(awk -F'[_.]' '{print $1; print $2}' <<< "${NAME_NOEXT}"))
 
-	if [[ ${#infos[@]} -ge 2 ]]; then
-		WORLDNAME="${infos[0]}"
-		echo "WORLD NAME $WORLDNAME"
+    if [[ ${#infos[@]} -ge 2 ]]; then
+        WORLDNAME="${infos[0]}"
+        echo "WORLD NAME $WORLDNAME"
 
-		DATESTR=${infos[1]}
-		echo "DATE STRING $DATESTR"
-	else
-		WORLDNAME=""
-		DATESTR=${infos[0]}
-		echo "DATE STRING $DATESTR"
-	fi
-	DESTPATH=$SERVER_BASE_PATH/$WORLDNAME/$MAP_TILES_PATH/$DATESTR/
+        DATESTR=${infos[1]}
+        echo "DATE STRING $DATESTR"
+    else
+        WORLDNAME=""
+        DATESTR=${infos[0]}
+        echo "DATE STRING $DATESTR"
+    fi
+    DESTPATH=$SERVER_BASE_PATH/$WORLDNAME/$MAP_TILES_PATH/$DATESTR/
 }
 
 function createNewWorld() {
@@ -97,15 +98,15 @@ function addDatesJSON() {
 }
 
 function main() {
-    testRequirements;
+    testRequirements
 
-    parseFileName;
+    parseFileName
 
-    createNewWorld;
+    createNewWorld
 
-    processTiles;
+    processTiles
 
-    addDatesJSON;
+    addDatesJSON
 
     echo "Success"
     exit 0
@@ -116,7 +117,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help)
             # Print Usage
-            usage;
+            usage
             exit 0
             ;;
         -r)
@@ -137,14 +138,14 @@ while [[ $# -gt 0 ]]; do
             TARFILE=$1
             echo "TARFILE $TARFILE"
             if ! tar tf "$TARFILE" >/dev/null 2>&1; then
-	            echo "ERROR: File is not a tar archive"
-                usage;
-	            exit 0
+                echo "ERROR: File is not a tar archive"
+                usage
+                exit 0
             fi
             FILENAME=$(basename "$TARFILE")
             shift
             ;;
-    esac    
+    esac
 done
 
-main;
+main
