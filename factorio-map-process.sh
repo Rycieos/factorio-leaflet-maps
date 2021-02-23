@@ -33,68 +33,65 @@ EOF
 }
 
 function testRequirements() {
-    if ! [ -x "$(command -v jq)" ]; then
-        echo "ERROR: Requirement not satisfied - jq -"
+    if ! command -v jq >/dev/null; then
+        echo "ERROR: Requirement not satisfied - jq -" >&2
         exit 1
     fi
 
-    if [[ REDUCE -eq 1 && !(-x "$(command -v rdfind)") ]]; then
-        echo "ERROR: Requirement not satisfied - rdfind -"
+    if [[ $REDUCE -eq 1 ]] && ! command -v rdfind >/dev/null; then
+        echo "ERROR: Requirement not satisfied - rdfind -" >&2
         exit 1
     fi
 
 }
 
 function parseFileName() {
-    NAME_NOEXT="${FILENAME%.*}"
-    echo "Target File: ${FILENAME}"
+    printf 'Target File: "%s"\n' "$FILENAME"
 
-    local IFS='\n'
-    infos=($(awk -F'[_.]' '{print $1; print $2}' <<< "${NAME_NOEXT}"))
+    local file_name=${FILENAME%.*}
 
-    if [[ ${#infos[@]} -ge 2 ]]; then
-        WORLDNAME="${infos[0]}"
-        echo "WORLD NAME $WORLDNAME"
+    date_string=${file_name##*_}
+    printf 'Date String: "%s"\n' "$date_string"
 
-        DATESTR=${infos[1]}
-        echo "DATE STRING $DATESTR"
-    else
-        WORLDNAME=""
-        DATESTR=${infos[0]}
-        echo "DATE STRING $DATESTR"
+    local world_name=${file_name%_*}
+
+    if [[ $date_string != $world_name ]]; then
+        printf 'World Name: "%s"\n' "$world_name"
+        SERVER_BASE_PATH="${SERVER_BASE_PATH}/${world_name}"
     fi
-    DESTPATH=$SERVER_BASE_PATH/$WORLDNAME/$MAP_TILES_PATH/$DATESTR/
+
+    DESTPATH="${SERVER_BASE_PATH}/${MAP_TILES_PATH}/${date_string}/"
 }
 
 function createNewWorld() {
     ## Test for existing world folder
-    if [[ ! -d $SERVER_BASE_PATH/$WORLDNAME ]]; then
+    if [[ ! -d ${SERVER_BASE_PATH}/${MAP_TILES_PATH} ]]; then
         ## Create New world folder
-        mkdir -p $SERVER_BASE_PATH/$WORLDNAME/$MAP_TILES_PATH
-        cp example.html $SERVER_BASE_PATH/$WORLDNAME/index.html
+        mkdir -p "${SERVER_BASE_PATH}/${MAP_TILES_PATH}"
+        cp example.html "${SERVER_BASE_PATH}/index.html"
     fi
 }
 
 function processTiles() {
-    echo "DESTINATION $DESTPATH"
-    mkdir $DESTPATH
-    $FACTORIO_MAP_SCRIPT $TARFILE $DESTPATH
+    printf 'Destination: "%s"\n' "$DESTPATH"
+    mkdir "$DESTPATH"
+    "$FACTORIO_MAP_SCRIPT" "$TARFILE" "$DESTPATH"
 
-    if [ $REDUCE -eq 1 ]; then
-        rdfind -makehardlinks true "${SERVER_BASE_PATH}/${WORLDNAME}/${MAP_TILES_PATH}"
+    if [[ $REDUCE -eq 1 ]]; then
+        rdfind -makehardlinks true "${SERVER_BASE_PATH}/${MAP_TILES_PATH}"
     fi
 }
 
 function addDatesJSON() {
-    DATEFILE="${SERVER_BASE_PATH}/${WORLDNAME}/dates.json"
-    if [[ -f $DATEFILE ]]; then
-        TMPFILE="$(mktemp)"
-        jq ". += [\"${DATESTR}\"]" "${DATEFILE}" > "${TMPFILE}" && cat "${TMPFILE}" > "${DATEFILE}"
-        rm "${TMPFILE}"
-    else
-        jq <<< "[\"${DATESTR}\"]" > "${DATEFILE}"
-    fi
+    local date_file="${SERVER_BASE_PATH}/dates.json"
 
+    if [[ -f $date_file ]]; then
+        local temp_file="$(mktemp)"
+        jq ". += [\"${date_string}\"]" "$date_file" > "$temp_file" && cat "$temp_file" > "$date_file"
+        rm "${temp_file}"
+    else
+        jq '.' <<< "[\"${date_string}\"]" > "$date_file"
+    fi
 }
 
 function main() {
@@ -125,22 +122,22 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -t|--tiles)
-            MAP_TILES_PATH="$2"
-            echo "Using MAP Path $MAP_TILES_PATH"
+            MAP_TILES_PATH="${2%/}"
+            printf 'Using MAP Path: "%s"\n' "$MAP_TILES_PATH"
             shift 2
             ;;
         -s|--server)
-            SERVER_BASE_PATH="$2"
-            echo "Using Server Path $SERVER_BASE_PATH"
+            SERVER_BASE_PATH="${2%/}"
+            printf 'Using Server Path: "%s"\n' "$SERVER_BASE_PATH"
             shift 2
             ;;
         *)
             TARFILE=$1
-            echo "TARFILE $TARFILE"
+            printf 'Tarfile: "%s"\n' "$TARFILE"
             if ! tar tf "$TARFILE" >/dev/null 2>&1; then
-                echo "ERROR: File is not a tar archive"
+                echo "ERROR: File is not a tar archive" >&2
                 usage
-                exit 0
+                exit 2
             fi
             FILENAME=$(basename "$TARFILE")
             shift
