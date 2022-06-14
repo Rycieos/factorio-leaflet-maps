@@ -9,7 +9,7 @@ import tarfile
 
 from multiprocessing import Pool
 
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 
 def main(*argv):
@@ -79,7 +79,7 @@ def create_map(source, destination, threads=None, chunk_size=None, no_progress_b
     pool.close()
 
     for zoom in range(9, 0, -1):
-        tiles = glob('{}{}/*/*.jpg'.format(destination, zoom+1))
+        tiles = glob('{}*/{}/*/*.jpg'.format(destination, zoom+1))
 
         # Parallel processing of tiles to lower-zoom levels
         with Pool(processes=threads) as pool:
@@ -102,22 +102,22 @@ def get_archive(archive_filename):
 def zoom_out(filename, destination, zoom):
     """Shrink and combine tiles to zoom view out."""
 
-    source_x, source_y = tile_coordinates(filename)
+    dimension, source_x, source_y = tile_coordinates(filename)
     tile_x = source_x // 2
     tile_y = source_y // 2
     origin_x = tile_x * 2
     origin_y = tile_y * 2
 
     if not os.path.isfile(
-            '{}{}/{}/{}.jpg'.format(destination, zoom, tile_y, tile_x)):
-        os.makedirs('{}{}/{}'.format(destination, zoom, tile_y), exist_ok=True)
+            '{}{}/{}/{}/{}.jpg'.format(destination, dimension, zoom, tile_y, tile_x)):
+        os.makedirs('{}{}/{}/{}'.format(destination, dimension, zoom, tile_y), exist_ok=True)
 
         tile_image = Image.new('RGB', (512, 512))
         for x_adj in range(2):
             for y_adj in range(2):
                 try:
-                    paste_image = Image.open('{}{}/{}/{}.jpg'.format(
-                        destination, zoom+1, origin_y+y_adj, origin_x+x_adj))
+                    paste_image = Image.open('{}{}/{}/{}/{}.jpg'.format(
+                        destination, dimension, zoom+1, origin_y+y_adj, origin_x+x_adj))
                 except FileNotFoundError:
                     paste_image = Image.new('RGB', (256, 256))
 
@@ -125,18 +125,19 @@ def zoom_out(filename, destination, zoom):
                     paste_image,
                     (x_adj*256, y_adj*256))
 
-        tile_image.resize((256, 256)).save('{}{}/{}/{}.jpg'.format(
-            destination, zoom, tile_y, tile_x), optimize=True)
+        tile_image.resize((256, 256)).save('{}{}/{}/{}/{}.jpg'.format(
+            destination, dimension, zoom, tile_y, tile_x), optimize=True)
 
 def chunk_coordinates(filename):
     """Extract chunk coordinates from filename."""
     _, chunk_x, chunk_y = os.path.splitext(filename)[0].rsplit('_', 2)
-    return (int(chunk_x), int(chunk_y))
+    dimension = os.path.splitext(filename)[0].split('/')[-2]
+    return (int(dimension), int(chunk_x), int(chunk_y))
 
 def tile_coordinates(path):
     """Compute tile coordinates."""
     explosion = os.path.splitext(path)[0].split('/')
-    return (int(explosion[-1]), int(explosion[-2]))
+    return (int(explosion[-4]), int(explosion[-1]), int(explosion[-2]))
 
 def tar_chunk_to_tiles(chunk, destination):
     data = archive.extractfile(chunk)
@@ -145,19 +146,23 @@ def tar_chunk_to_tiles(chunk, destination):
 def chunk_to_tiles(chunk, destination, chunkname=None):
     """Convert the chunk screenshot to Leaflet tiles at maximum zoom."""
 
-    chunk_image = Image.open(chunk)
+    try:
+        chunk_image = Image.open(chunk)
+    except UnidentifiedImageError:
+        # Ignore files that are not images
+        return
 
-    chunk_x, chunk_y = chunk_coordinates(chunkname if chunkname else chunk)
+    dimension, chunk_x, chunk_y = chunk_coordinates(chunkname if chunkname else chunk)
     tile_x = chunk_x*4
     tile_y = chunk_y*4
 
     if not os.path.isfile(
-            '{}{}/{}/{}.jpg'.format(destination, 10, tile_y, tile_x)):
+            '{}{}/{}/{}/{}.jpg'.format(destination, dimension, 10, tile_y, tile_x)):
         for x_adj in range(4):
             for y_adj in range(4):
                 os.makedirs(
-                    '{}{}/{}'.format(
-                        destination, 10, tile_y+y_adj),
+                    '{}{}/{}/{}'.format(
+                        destination, dimension, 10, tile_y+y_adj),
                     exist_ok=True)
 
                 chunk_image.crop(
@@ -166,8 +171,8 @@ def chunk_to_tiles(chunk, destination, chunkname=None):
                         y_adj*256,
                         (x_adj+1)*256,
                         (y_adj+1)*256)
-                    ).save('{}{}/{}/{}.jpg'.format(
-                        destination, 10, tile_y+y_adj, tile_x+x_adj), optimize=True)
+                    ).save('{}{}/{}/{}/{}.jpg'.format(
+                        destination, dimension, 10, tile_y+y_adj, tile_x+x_adj), optimize=True)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))

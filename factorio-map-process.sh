@@ -82,16 +82,22 @@ function processTiles() {
     fi
 }
 
-function addDatesJSON() {
-    local date_file="${SERVER_BASE_PATH}/dates.json"
+function addDataJSON() {
+    local data_file="${SERVER_BASE_PATH}/data.json"
 
-    if [[ -f $date_file ]]; then
-        local temp_file="$(mktemp)"
-        jq ". += [\"${date_string}\"]" "$date_file" > "$temp_file" && cat "$temp_file" > "$date_file"
-        rm "${temp_file}"
+    local temp_file="$(mktemp)"
+    local surface_file="$(mktemp)"
+
+    tar -xaf "$TARFILE" ./surfaces.json -O > "$surface_file"
+
+    if [[ -f $data_file ]]; then
+        jq -s ".[0].dates += [\"${date_string}\"] | {dates: .[0].dates, surfaces: .[1]}" "$data_file" "$surface_file" > "$temp_file"
     else
-        jq '.' <<< "[\"${date_string}\"]" > "$date_file"
+        jq "{dates: [\"${date_string}\"], surfaces: .}" "$surface_file" > "$temp_file"
     fi
+
+    cat "$temp_file" > "$data_file"
+    rm "${temp_file}" "${surface_file}"
 }
 
 function main() {
@@ -103,7 +109,7 @@ function main() {
 
     processTiles
 
-    addDatesJSON
+    addDataJSON
 
     echo "Success"
     exit 0

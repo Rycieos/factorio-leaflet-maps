@@ -1,5 +1,6 @@
 <html>
 <head>
+    <title>Factorio Server Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css"
         integrity="sha384-BF7C732iE6WuqJMhUnTNJJLVvW1TIP87P2nMDY7aN2j2EJFWIaqK89j3WlirhFZU"
         crossorigin=""/>
@@ -72,8 +73,8 @@ body {
   height: 15px;
 }
 
-#layer-label {
-  --pos: calc((var(--layer-selector) - var(--min))*var(--uu));
+#timestamp-label {
+  --pos: calc((var(--timestamp-selector) - var(--min))*var(--uu));
   position: absolute;
   bottom: 100%;
   left: 0.5em;
@@ -89,8 +90,14 @@ body {
 }
 
 .slide-container:hover,
-.slide-container:hover #layer-label {
+.slide-container:hover #timestamp-label {
   opacity: 1;
+}
+
+.selector {
+  margin-right: 10px;
+  margin-top: 10px;
+  pointer-events: auto;
 }
 
 .invisible {
@@ -105,15 +112,15 @@ body {
 <div class="container">
     <div id="mapid"></div>
     <div class="slide-container leaflet-control">
-        <input id="layer-selector" type="range" min="0" step="1" class="slider" oninput="loadLayer(this.value)">
-        <output id="layer-label" for="layer-selector"></output>
+        <input id="timestamp-selector" type="range" min="0" step="1" class="slider" oninput="loadTimestampLayer(this.value)">
+        <output id="timestamp-label" for="timestamp-selector"></output>
     </div>
 </div>
 
 <script>
 
 var pathPrefix = "images/"
-var dates_json_file = "dates.json"
+var data_json_file = "data.json"
 
 function HttpGet(url){
     let Httpreq = new XMLHttpRequest();
@@ -168,10 +175,21 @@ L.TileLayer2 = L.TileLayer.extend({
     }
 });
 
-function loadLayer(id) {
+function getImagePath() {
+    return pathPrefix + dates[timestamp_id] + "/" + surface_id + "/{z}/{y}/{x}.jpg";
+}
+
+function loadTimestampLayer(id) {
     label.value = dates[id];
-    current_layer_id = id
-    layer.setUrl(pathPrefix + dates[id] + "/{z}/{y}/{x}.jpg", true);
+    timestamp_id = id;
+    layer.setUrl(getImagePath());
+    layer.refresh();
+    saveBoundary();
+}
+
+function loadSurfaceLayer(id) {
+    surface_id = id;
+    layer.setUrl(getImagePath());
     layer.refresh();
     saveBoundary();
 }
@@ -182,13 +200,14 @@ function loadBoundary() {
         qs = qs.substring(1);
         qs = qs.split(',');
     }
-    if (qs.length === 4) {
+    if (qs.length === 5) {
         qs[0] = Number.parseFloat(qs[0]);
         qs[1] = Number.parseFloat(qs[1]);
         qs[2] = Number.parseInt(qs[2]);
-        qs[3] = Number.parseInt(qs[3]);
+        qs[3] = qs[3];
+        qs[4] = Number.parseInt(qs[4]);
     } else {
-        qs = [0, 0, 8, dates.length - 1] // Set default center and zoom here
+        qs = [0, 0, 8, 1, dates.length - 1] // Set default center and zoom here
     }
 
     return qs;
@@ -197,13 +216,15 @@ function loadBoundary() {
 function saveBoundary() {
     var center = mymap.getCenter();
     var zoom = Number.parseInt(mymap.getZoom());
-    var url = '?' + center.lat.toPrecision(5) + ',' + center.lng.toPrecision(5) + ',' + zoom + ',' + current_layer_id;
+    var url = '?' + center.lat.toPrecision(5) + ',' + center.lng.toPrecision(5) + ',' + zoom + ',' + surface_id + ',' + timestamp_id;
     window.history.replaceState({}, '', url);
 }
 
-var dates = JSON.parse(HttpGet(dates_json_file));
+var data = JSON.parse(HttpGet(data_json_file));
+var dates = data.dates;
+var surfaces = data.surfaces;
 
-let slider = document.getElementById("layer-selector");
+let slider = document.getElementById("timestamp-selector");
 slider.max = dates.length - 1;
 slider.parentNode.style.setProperty(`--max`, slider.max)
 
@@ -213,14 +234,15 @@ if (slider.max == 0) {
 }
 
 let b = loadBoundary();
-var current_layer_id = b[3];
-slider.value = current_layer_id;
-slider.parentNode.style.setProperty(`--layer-selector`, slider.value)
+var surface_id = b[3];
+var timestamp_id = b[4];
+slider.value = timestamp_id;
+slider.parentNode.style.setProperty(`--timestamp-selector`, slider.value);
 
-var label = document.getElementById("layer-label");
-label.value = dates[current_layer_id];
+var label = document.getElementById("timestamp-label");
+label.value = dates[timestamp_id];
 
-var layer = new L.TileLayer2(pathPrefix + dates[current_layer_id] + "/{z}/{y}/{x}.jpg");
+var layer = new L.TileLayer2(getImagePath());
 
 var mymap = L.map('mapid', {
     crs: L.CRS.Simple,
@@ -229,6 +251,26 @@ var mymap = L.map('mapid', {
     wheelPxPerZoomLevel: 500,
     layers: [layer],
 }).setView([b[0], b[1]], b[2]);
+
+if (surfaces) {
+    var selector = document.createElement("select");
+    selector.className = "selector";
+
+    for (const surface_id in surfaces) {
+        let option = document.createElement("option");
+        option.value = surface_id;
+        option.text = surfaces[surface_id];
+        selector.add(option);
+    }
+
+    selector.value = surface_id;
+
+    // Add dropdown to the top right corner.
+    let container = document.getElementsByClassName("leaflet-top leaflet-right")[0];
+    container.appendChild(selector);
+
+    selector.onchange = function(){ loadSurfaceLayer(this.value) };
+}
 
 mymap.on('moveend', function (e) {
     saveBoundary();
