@@ -132,12 +132,12 @@ def chunk_coordinates(filename):
     """Extract chunk coordinates from filename."""
     _, chunk_x, chunk_y = os.path.splitext(filename)[0].rsplit('_', 2)
     dimension = os.path.splitext(filename)[0].split('/')[-2]
-    return (int(dimension), int(chunk_x), int(chunk_y))
+    return (dimension, int(chunk_x), int(chunk_y))
 
 def tile_coordinates(path):
     """Compute tile coordinates."""
     explosion = os.path.splitext(path)[0].split('/')
-    return (int(explosion[-4]), int(explosion[-1]), int(explosion[-2]))
+    return (explosion[-4], int(explosion[-1]), int(explosion[-2]))
 
 def tar_chunk_to_tiles(chunk, destination):
     data = archive.extractfile(chunk)
