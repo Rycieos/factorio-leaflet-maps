@@ -252,7 +252,7 @@ var mymap = L.map('mapid', {
     layers: [layer],
 }).setView([b[0], b[1]], b[2]);
 
-if (surfaces) {
+if (surfaces && surfaces.size > 1) {
     var selector = document.createElement("select");
     selector.className = "selector";
 
