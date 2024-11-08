@@ -63,7 +63,7 @@ def create_map(source, destination, threads=None, chunk_size=None, no_progress_b
         jobs = pool.imap_unordered(partial(tar_chunk_to_tiles, destination=destination), chunks, chunk_size)
     else:
         pool = Pool(processes=threads)
-        chunks = glob(source + 'chunk_*.jpg')
+        chunks = glob(source + '*/chunk_*.jpg')
         jobs = pool.imap_unordered(partial(chunk_to_tiles, destination=destination), chunks, chunk_size)
 
     kwargs = {
