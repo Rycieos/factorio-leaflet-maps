@@ -191,6 +191,7 @@ function loadSurfaceLayer(id) {
     surface_id = id;
     layer.setUrl(getImagePath());
     layer.refresh();
+    mymap.setView([0, 0], mymap.getZoom(), {animate: false});
     saveBoundary();
 }
 
