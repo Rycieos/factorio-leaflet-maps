@@ -8,7 +8,7 @@ A Python script to convert [Factorio](http://factorio.com/) screenshots into [Le
 2. Paste the following command and press **Enter**.
 
 ```(lua)
-/c json=''; for _, surface in pairs(game.surfaces) do if (json ~= '') then json=json..', '; end; json=json..'"'..surface.index..'": "'..surface.name..'"'; for x=-1000,1000 do for y=-1000,1000 do if game.forces["player"].is_chunk_charted(surface, {x, y}) then game.take_screenshot{surface=surface, show_entity_info=true, daytime=0, water_tick=0, hide_clouds=true, hide_fog=true, zoom=1, resolution={1024,1024}, position={x=32*x+16,y=32*y+16}, path="factoriomaps/"..surface.index.."/chunk_"..x.."_"..y..".jpg"}; end; end; end; end; helpers.write_file("factoriomaps/surfaces.json", "{"..json.."}");
+/c json=''; for _, surface in pairs(game.surfaces) do if (json ~= '') then json=json..', '; end; surface_name = surface.name; if surface.planet then surface_name = surface.planet.name; elseif surface.platform then surface_name = surface.platform.name; end; json=json..'"'..surface.index..'": "'..surface_name..'"'; for x=-1000,1000 do for y=-1000,1000 do if game.forces["player"].is_chunk_charted(surface, {x, y}) then game.take_screenshot{surface=surface, show_entity_info=true, daytime=0, water_tick=0, hide_clouds=true, hide_fog=true, zoom=1, resolution={1024,1024}, position={x=32*x+16,y=32*y+16}, path="factoriomaps/"..surface.index.."/chunk_"..x.."_"..y..".jpg"}; end; end; end; end; helpers.write_file("factoriomaps/surfaces.json", "{"..json.."}");
 ```
 
 > **NOTE:** Using console commands disables achievements in your current game. To retain achievements, reload your save after running the command.
