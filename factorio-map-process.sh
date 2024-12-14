@@ -38,9 +38,11 @@ function testRequirements() {
         exit 1
     fi
 
-    if [[ $REDUCE -eq 1 ]] && ! command -v rdfind >/dev/null; then
-        echo "ERROR: Requirement not satisfied - rdfind -" >&2
-        exit 1
+    if [[ $REDUCE -eq 1 ]]; then
+        if ! command -v fclones >/dev/null || ! command -v rdfind >/dev/null; then
+            echo "ERROR: Requirement not satisfied: -r|--reduce requires fclones or rdfind." >&2
+            exit 1
+        fi
     fi
 
 }
@@ -76,8 +78,12 @@ function processTiles() {
     printf 'Destination: "%s"\n' "$DESTPATH"
     mkdir "$DESTPATH"
     "$FACTORIO_MAP_SCRIPT" "$TARFILE" "$DESTPATH"
+}
 
-    if [[ $REDUCE -eq 1 ]]; then
+function reduce() {
+    if command -v fclones >/dev/null ; then
+        fclones group --cache "${SERVER_BASE_PATH}/${MAP_TILES_PATH}" | fclones link
+    else
         rdfind -makehardlinks true "${SERVER_BASE_PATH}/${MAP_TILES_PATH}"
     fi
 }
@@ -111,6 +117,10 @@ function main() {
 
     addDataJSON
 
+    if [[ $REDUCE -eq 1 ]]; then
+        reduce
+    fi
+
     echo "Success"
     exit 0
 }
@@ -123,7 +133,7 @@ while [[ $# -gt 0 ]]; do
             usage
             exit 0
             ;;
-        -r)
+        -r|--reduce)
             REDUCE=1
             shift
             ;;
