@@ -97,7 +97,7 @@ function addDataJSON() {
     tar -xaf "$TARFILE" ./surfaces.json -O > "$surface_file"
 
     if [[ -f $data_file ]]; then
-        jq -s ".[0].dates += [\"${date_string}\"] | {dates: .[0].dates, surfaces: .[1]}" "$data_file" "$surface_file" > "$temp_file"
+        jq -s ".[0].dates += [\"${date_string}\"] | {dates: .[0].dates, surfaces: (.[0].surfaces * .[1])}" "$data_file" "$surface_file" > "$temp_file"
     else
         jq "{dates: [\"${date_string}\"], surfaces: .}" "$surface_file" > "$temp_file"
     fi
